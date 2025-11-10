@@ -1,0 +1,10 @@
+[project]
+name = "feather"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "circup>=2.2.5",
+    "urllib3>=2.5.0",
+]
