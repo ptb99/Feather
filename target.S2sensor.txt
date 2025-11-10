@@ -1,0 +1,8 @@
+adafruit_logging
+adafruit_bme280
+adafruit_lc709203f
+adafruit_io
+adafruit_minimqtt
+adafruit_requests
+neopixel
+
