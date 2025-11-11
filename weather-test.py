@@ -20,7 +20,13 @@ DATA_SOURCE_URL = "http://api.openweathermap.org/data/2.5/weather"
 #37.302371680390905, -121.97163794306131
 
 # You'll need to get a token from openweathermap.org, put it here:
-OPEN_WEATHER_TOKEN = "10622dd1ce944ff03dac594f29908373"
+OPEN_WEATHER_TOKEN = ''
+try:
+    from secrets import secrets
+    OPEN_WEATHER_TOKEN = secrets['open_weather_token']
+except ImportError:
+    print("Weather token not found: no secrets.py file")
+    raise
 
 if len(OPEN_WEATHER_TOKEN) == 0:
     raise RuntimeError(

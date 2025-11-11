@@ -346,6 +346,7 @@ def get_network_io_handle():
 
 
 def get_weather_info():
+    logger = logging.getLogger('weather')
 
     # Use cityname, country code where countrycode is ISO3166 format.
     # E.g. "New York, US" or "London, GB"
@@ -353,7 +354,13 @@ def get_weather_info():
     DATA_SOURCE_URL = "http://api.openweathermap.org/data/2.5/weather"
 
     # You'll need to get a token from openweathermap.org, put it here:
-    OPEN_WEATHER_TOKEN = "10622dd1ce944ff03dac594f29908373"
+    OPEN_WEATHER_TOKEN = ''
+    try:
+        from secrets import secrets
+        OPEN_WEATHER_TOKEN = secrets['open_weather_token']
+    except ImportError:
+        logger.error("Weather token failed: no secrets.py file")
+        raise
 
     if len(OPEN_WEATHER_TOKEN) == 0:
         raise RuntimeError(
