@@ -2,8 +2,9 @@
 ## CircuitPython code for a basic clock on TFT display
 ##
 
-import time
+import asyncio
 import board
+import keypad
 import adafruit_logging as logging
 import traceback
 
@@ -28,12 +29,29 @@ TZ_OFFSET = 0 ## use AF service to get offset
 #TZ_OFFSET = -8 # for PST
 
 LARGE_FONT =  "fonts/DejaVuSans-Bold-36.pcf"
-FG_COLOR = 0x0000FF
+FG_COLORS = [0x0000FF, 0xFF00FF, 0xFF0000, 0xFFFF00, 0x00FF00, 0x00FFFF]
 
 
 ## UI buttons
-BUTTON_UP = board.D0
+## on the Feather TFT board, the D0 button is default HI and GND when pressed
+## but the D1/D2 buttons are default LO and HI when pressed
+#BUTTON_UP = board.D0
+BUTTON_UP = board.D1
 BUTTON_DOWN = board.D2
+
+
+class ColorSelect():
+    def __init__(self):
+        self.color_wheel = FG_COLORS[:]
+
+    def get(self):
+        return self.color_wheel[0]
+
+    def rotate_left(self):
+        self.color_wheel = self.color_wheel[1:] + [self.color_wheel[0]]
+
+    def rotate_right(self):
+        self.color_wheel = [self.color_wheel[-1]] + self.color_wheel[0:-1]
 
 
 def get_time_string(ts):
@@ -71,10 +89,10 @@ def get_ntp_handle(*, dhcpname=None, tz_offset=0):
         url = f'https://io.adafruit.com/api/v2/{secrets["aio_username"]}/' + \
             f'integrations/time/strftime?x-aio-key={secrets["aio_key"]}&fmt=%25z'
         with requests.get(url) as response:
-            logger.info(f"strftime call returned: {response.status_code}")
+            logger.info(f"strftime GET returned status: {response.status_code}")
             # check status_code == 200??
             val = int(response.text)/100
-            logger.info(f"tz_offset: {response.text} ->  {val}")
+            logger.info(f"tz_offset: {response.text} ->  {int(val)}")
             tz_offset = int(val)
 
     # NTP handle
@@ -85,14 +103,16 @@ def get_ntp_handle(*, dhcpname=None, tz_offset=0):
 
 
 class MyDisplay:
-    def __init__(self, disp, font, fgcolor):
+    def __init__(self, disp, font, color_wheel):
         self.display = disp
         time_text = '00:00:00'
 
         self.font = bitmap_font.load_font(font)
+        self.color_wheel = color_wheel
 
         # Create the text label
-        self.text_area = Label(self.font, text=time_text, color=fgcolor)
+        self.text_area = Label(self.font, text=time_text,
+                               color=self.color_wheel.get())
 
         # Set the location
         self.text_area.x = 40
@@ -103,14 +123,46 @@ class MyDisplay:
 
     def update_text(self, text):
         self.text_area.text = text
+        fgcolor = self.color_wheel.get()
+        self.text_area.color = fgcolor
         self.display.refresh()
+        # logger = logging.getLogger('main')
+        # logger.debug(f'update_text with {text} and color {fgcolor:x}')
+
+
+async def handle_buttons(pin_up, pin_down, color_wheel):
+    """Handle two buttons: up/down run through a set of FG colors."""
+    logger = logging.getLogger('main')
+    with keypad.Keys(
+        (pin_down, pin_up), value_when_pressed=True, pull=True
+    ) as keys:
+        while True:
+            event = keys.events.get()
+            if event and event.pressed:
+                if event.key_number == 0:
+                    # rotate up
+                    color_wheel.rotate_left()
+                    fgcolor = color_wheel.get()
+                    logger.info(f'key UP - rotate left - color {fgcolor:x}')
+                else:
+                    # key_number == 1
+                    color_wheel.rotate_right()
+                    fgcolor = color_wheel.get()
+                    logger.info(f'key DOWN - rotate left - color {fgcolor:x}')
+            # Let another task run.
+            await asyncio.sleep(0)
 
 
 ## main program
-def main():
-    ntp_hndl = get_ntp_handle(dhcpname='esp32clock')
-    disp = MyDisplay(board.DISPLAY, LARGE_FONT, FG_COLOR)
+async def main():
     logger = logging.getLogger('main')
+    ntp_hndl = get_ntp_handle(dhcpname='esp32clock')
+    color_wheel = ColorSelect()
+    disp = MyDisplay(board.DISPLAY, LARGE_FONT, color_wheel)
+
+    button_task = asyncio.create_task(
+        handle_buttons(BUTTON_UP, BUTTON_DOWN, color_wheel)
+    )
 
     while True:
         try:
@@ -119,7 +171,7 @@ def main():
             time_text = get_time_string(now)
             logger.debug(f'Time = {time_text}')
             disp.update_text(time_text)
-            time.sleep(1)
+            await asyncio.sleep(1)
 
         except OSError as e:
             # NTP error
@@ -133,6 +185,8 @@ def main():
             # re-raise the error and hang the program
             raise
 
+    await asyncio.gather(button_task)
+
 
 ## actual exec here:
 if __name__ == '__main__':
@@ -141,5 +195,5 @@ if __name__ == '__main__':
         logger.setLevel(logging.DEBUG)
     else:
         logger.setLevel(logging.INFO)
-
-    main()
+    #main()
+    asyncio.run(main())

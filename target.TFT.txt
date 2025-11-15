@@ -1,0 +1,11 @@
+Found device adafruit_feather_esp32s2_reverse_tft at /run/media/tom/CIRCUITPY, running CircuitPython 10.0.3.
+Using latest bundle for adafruit/Adafruit_CircuitPython_Bundle (20251114).
+Using latest bundle for adafruit/CircuitPython_Community_Bundle (20251107).
+adafruit_ntp==3.3.5
+adafruit_ticks==1.1.5
+adafruit_connection_manager==3.1.6
+adafruit_logging==5.6.0
+adafruit_requests==4.1.15
+adafruit_bitmap_font==2.3.2
+adafruit_display_text==3.3.4
+asyncio==3.0.3
